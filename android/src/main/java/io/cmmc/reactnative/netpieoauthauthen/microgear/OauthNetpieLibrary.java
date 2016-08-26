@@ -63,33 +63,21 @@ public class OauthNetpieLibrary extends Activity {
             JSONObject json = new JSONObject(sb.toString());
             chk = json.getJSONObject("_").getString("key");
             if (chk != null) {
-                if (chk.equals(KEY)) {
-                    authorize_callback = "scope=&appid=" + APP_ID + "&mgrev=NJS1a&verifier=NJS1a";
-                    _Key = KEY;
-                    _Secret = SECRET;
-                    authorization = request.OAuth(_Key, _Secret, authorize_callback);
-                    String str_result = new
-                            CheckInvalid().execute("http://ga.netpie.io:8080/api/rtoken").get();
-                    return str_result;
-
-                } else {
-                    authorize_callback = "scope=&appid=" + APP_ID + "&mgrev=NJS1a&verifier=NJS1a";
-                    _Key = KEY;
-                    _Secret = SECRET;
-                    authorization = request.OAuth(_Key, _Secret, authorize_callback);
-                    String str_result = new
-                            CheckInvalid().execute("http://ga.netpie.io:8080/api/rtoken").get();
-                    if (str_result.equals("yes")){
+                authorize_callback = "scope=&appid=" + APP_ID + "&mgrev=NJS1a&verifier=NJS1a";
+                _Key = KEY;
+                _Secret = SECRET;
+                authorization = request.OAuth(_Key, _Secret, authorize_callback);
+                String str_result = new
+                        CheckInvalid().execute("http://ga.netpie.io:8080/api/rtoken").get();
+                if (chk.equals(KEY) == false) {
+                    if (str_result.equals("yes")) {
                         rf = new Revoketoken();
                         rf.execute("http://ga.netpie.io:8080/api/revoke/");
                     }
-
-                    return str_result;
                 }
 
+                return str_result;
             }
-
-
         } catch (FileNotFoundException e) {
 
             authorize_callback = "scope=&appid=" + APP_ID + "&mgrev=NJS1a&verifier=NJS1a";
@@ -165,7 +153,7 @@ public class OauthNetpieLibrary extends Activity {
 
             } catch (JSONException e) {
                 e.printStackTrace();
-            } catch (IOException e){
+            } catch (IOException e) {
                 Log.i(getClass().getCanonicalName(), "Please Check your App id,Key,Secret");
                 return token_token_secret;
             }
