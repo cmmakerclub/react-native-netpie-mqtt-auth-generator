@@ -47,29 +47,34 @@ public class OauthNetpieLibrary extends Activity {
     public static SimpleTask simpleTask;
     public static Revoketoken rf;
 
-    public String create(String APP_ID, String KEY, String SECRET, String path) {
-        BufferedReader br;
+    public String readJsonFromFile() throws IOException {
         StringBuilder sb = new StringBuilder();
+        BufferedReader br;
+        FileInputStream fis = new FileInputStream(pathtowrite);
+        String line;
+        br = new BufferedReader(new InputStreamReader(fis));
+        while ((line = br.readLine()) != null) {
+            sb.append(line);
+        }
+
+        return sb.toString();
+    }
+    public String create(String APP_ID, String KEY, String SECRET, String path) {
         pathtowrite = path;
 
-        String line;
+        authorize_callback = "scope=&appid=" + APP_ID + "&mgrev=NJS1a&verifier=NJS1a";
+        _Key = KEY;
+        _Secret = SECRET;
+
         String chk;
         try {
-            FileInputStream fis = new FileInputStream(pathtowrite);
-            br = new BufferedReader(new InputStreamReader(fis));
-            while ((line = br.readLine()) != null) {
-                sb.append(line);
-            }
-            JSONObject json = new JSONObject(sb.toString());
+            JSONObject json = new JSONObject(readJsonFromFile());
             chk = json.getJSONObject("_").getString("key");
             if (chk != null) {
-                authorize_callback = "scope=&appid=" + APP_ID + "&mgrev=NJS1a&verifier=NJS1a";
-                _Key = KEY;
-                _Secret = SECRET;
                 authorization = request.OAuth(_Key, _Secret, authorize_callback);
                 String str_result = new
                         CheckInvalid().execute("http://ga.netpie.io:8080/api/rtoken").get();
-                if (chk.equals(KEY) == false) {
+                if (!chk.equals(KEY)) {
                     if (str_result.equals("yes")) {
                         rf = new Revoketoken();
                         rf.execute("http://ga.netpie.io:8080/api/revoke/");
@@ -79,11 +84,6 @@ public class OauthNetpieLibrary extends Activity {
                 return str_result;
             }
         } catch (FileNotFoundException e) {
-
-            authorize_callback = "scope=&appid=" + APP_ID + "&mgrev=NJS1a&verifier=NJS1a";
-            _Key = KEY;
-            _Secret = SECRET;
-
             authorization = request.OAuth(_Key, _Secret, authorize_callback);
             simpleTask = new SimpleTask();
 
@@ -229,16 +229,8 @@ public class OauthNetpieLibrary extends Activity {
         }
 
         public String ReadFile() {
-            StringBuilder sb = new StringBuilder();
-            String line;
-            BufferedReader br;
             try {
-                FileInputStream fis = new FileInputStream(pathtowrite);
-                br = new BufferedReader(new InputStreamReader(fis));
-                while ((line = br.readLine()) != null) {
-                    sb.append(line);
-                }
-                JSONObject json = new JSONObject(sb.toString());
+                JSONObject json = new JSONObject(readJsonFromFile());
                 token = json.getJSONObject("_").getJSONObject("accesstoken").getString("token");
                 revokecode = json.getJSONObject("_").getJSONObject("accesstoken").getString("revokecode");
             } catch (FileNotFoundException e) {
