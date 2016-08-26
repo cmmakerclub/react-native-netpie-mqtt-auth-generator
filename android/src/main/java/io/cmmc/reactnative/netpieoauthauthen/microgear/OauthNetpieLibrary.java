@@ -128,7 +128,7 @@ public class OauthNetpieLibrary extends Activity {
     }
 
 
-    public void updateTokenJsonObject(String... params) throws JSONException, IOException {
+    public void requestOauthAndUpdateTokenObject(String... params) throws JSONException, IOException {
         URL Url;
         Url = new URL(params[0]);
         URLConnection conn = Url.openConnection();
@@ -155,10 +155,9 @@ public class OauthNetpieLibrary extends Activity {
 
         protected JSONObject doInBackground(String... params) {
             try {
-                updateTokenJsonObject(params);
-                Access_Token(token_token_secret_json_object);
+                requestOauthAndUpdateTokenObject(params);
+                saveTokenObjectToFile(token_token_secret_json_object);
                 return token_token_secret_json_object;
-
             } catch (JSONException e) {
                 e.printStackTrace();
             } catch (IOException e) {
@@ -174,7 +173,7 @@ public class OauthNetpieLibrary extends Activity {
 
         protected String doInBackground(String... params) {
             try {
-                updateTokenJsonObject(params);
+                requestOauthAndUpdateTokenObject(params);
                 return "yes";
             } catch (SocketTimeoutException e) {
                 return "id";
@@ -265,7 +264,7 @@ public class OauthNetpieLibrary extends Activity {
         return query_pairs;
     }
 
-    public void Access_Token(JSONObject Request_token) { //token_token_secret_json_object
+    public void saveTokenObjectToFile(JSONObject Request_token) { //token_token_secret_json_object
         Map<String, String> request;
         Map<String, String> access;
         try {
