@@ -41,6 +41,7 @@ public class NetpieAuthModule extends ReactContextBaseJavaModule {
     public static final String TAG = NetpieAuthModule.class.getSimpleName();
 
     public OauthNetpieLibrary oauthNetpieLibrary;
+
     public String name = "microgear.cache";
     public File tempFile;
     public File cDir;
@@ -50,7 +51,6 @@ public class NetpieAuthModule extends ReactContextBaseJavaModule {
     public String appkey = "60qturoh80sRMXq";
     public String appsecret = "ahKOgQWSE6h87Anc9QP5HJgdQ";
 
-    private String serverUri;
     private String mqttuser, mqttclientid, mqttpassword;
 
     public NetpieAuthModule(ReactApplicationContext reactContext) {
@@ -85,7 +85,7 @@ public class NetpieAuthModule extends ReactContextBaseJavaModule {
 
         appid = _appId;
         appkey = _appKey;
-        appsecret = appsecret;
+        appsecret = _appSecret;
 
         oauthNetpieLibrary = new OauthNetpieLibrary();
         cDir = context.getCacheDir();
@@ -94,7 +94,7 @@ public class NetpieAuthModule extends ReactContextBaseJavaModule {
 
         if (a.equals("yes")) {
             Log.d(TAG, "config: YES");
-            brokerconnect(appid, appkey, appsecret);
+            brokerconnect(appsecret);
             WritableMap params = new WritableNativeMap();
             params.putString("appid", appid);
             params.putString("appkey", appkey);
@@ -117,7 +117,7 @@ public class NetpieAuthModule extends ReactContextBaseJavaModule {
 
     }
 
-    private void brokerconnect(String appid, String key, String secret) {
+    private void brokerconnect(String secret) {
         File fi = new File(tempFile.toString());
         BufferedReader br;
         StringBuilder sb = new StringBuilder();
@@ -165,10 +165,7 @@ public class NetpieAuthModule extends ReactContextBaseJavaModule {
     @ReactMethod
     public void writeBackTest() {
         WritableMap params = new WritableNativeMap();
-        String message = new String("TEST");
-        params.putString("topic", "TOPIC");
-        params.putString("message", message);
-
+        params.putString("topic_key", "topic_value");
         sendEvent(mContext, "messageArrived", params);
     }
 
