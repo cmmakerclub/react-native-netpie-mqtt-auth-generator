@@ -38,7 +38,7 @@ public class OauthNetpieLibrary extends Activity {
     public static String _Secret;
     public OAuth1_0a_Request request = new OAuth1_0a_Request();
     public String authorization;
-    public JSONObject token_token_secret = new JSONObject();
+    public JSONObject token_token_secret_json_object = new JSONObject();
     public static JSONObject file = new JSONObject();
     public static JSONObject file2 = new JSONObject();
     public static JSONObject file3 = new JSONObject();
@@ -59,22 +59,25 @@ public class OauthNetpieLibrary extends Activity {
 
         return sb.toString();
     }
-    public String create(String APP_ID, String KEY, String SECRET, String path) {
+    public String create(String appId, String appKey, String appSecret, String path) {
         pathtowrite = path;
 
-        authorize_callback = "scope=&appid=" + APP_ID + "&mgrev=NJS1a&verifier=NJS1a";
-        _Key = KEY;
-        _Secret = SECRET;
+        authorize_callback = "scope=&appid=" + appId + "&mgrev=NJS1a&verifier=NJS1a";
 
-        String chk;
+        _Key = appKey;
+        _Secret = appSecret;
+
+        String keyNode;
         try {
             JSONObject json = new JSONObject(readJsonFromFile());
-            chk = json.getJSONObject("_").getString("key");
-            if (chk != null) {
-                authorization = request.OAuth(_Key, _Secret, authorize_callback);
+            keyNode = json.getJSONObject("_").getString("key");
+            if (keyNode != null) {
+                // no key node
+                // then request oauth;
+                authorization = request.OAuth(appKey, appSecret, authorize_callback);
                 String str_result = new
                         CheckInvalid().execute("http://ga.netpie.io:8080/api/rtoken").get();
-                if (!chk.equals(KEY)) {
+                if (!keyNode.equals(appKey)) {
                     if (str_result.equals("yes")) {
                         rf = new Revoketoken();
                         rf.execute("http://ga.netpie.io:8080/api/revoke/");
@@ -84,7 +87,7 @@ public class OauthNetpieLibrary extends Activity {
                 return str_result;
             }
         } catch (FileNotFoundException e) {
-            authorization = request.OAuth(_Key, _Secret, authorize_callback);
+            authorization = request.OAuth(appKey, appSecret, authorize_callback);
             simpleTask = new SimpleTask();
 
             try {
@@ -125,37 +128,42 @@ public class OauthNetpieLibrary extends Activity {
     }
 
 
+    public void updateTokenJsonObject(String... params) throws JSONException, IOException {
+        URL Url;
+        Url = new URL(params[0]);
+        URLConnection conn = Url.openConnection();
+        conn.setReadTimeout(3000);
+        ((HttpURLConnection) conn).setRequestMethod("POST");
+        conn.setDoOutput(true);
+        conn.setRequestProperty("Authorization", authorization);
+        OutputStreamWriter writer = new OutputStreamWriter(conn.getOutputStream());
+        writer.write(authorization);
+        writer.flush();
+        InputStream is = conn.getInputStream();
+        BufferedReader bufferReader = new BufferedReader(new InputStreamReader(is));
+        StringBuilder response = new StringBuilder();
+        String line;
+        while ((line = bufferReader.readLine()) != null) {
+            response.append(line);
+            token_token_secret_json_object.put("", response);
+        }
+        bufferReader.close();
+    }
+
+
     public class SimpleTask extends AsyncTask<String, Void, JSONObject> {
 
         protected JSONObject doInBackground(String... params) {
-            URL Url;
             try {
-                Url = new URL(params[0]);
-                URLConnection conn = Url.openConnection();
-                conn.setReadTimeout(3000);
-                ((HttpURLConnection) conn).setRequestMethod("POST");
-                conn.setDoOutput(true);
-                conn.setRequestProperty("Authorization", authorization);
-                OutputStreamWriter writer = new OutputStreamWriter(conn.getOutputStream());
-                writer.write(authorization);
-                writer.flush();
-                InputStream is = conn.getInputStream();
-                BufferedReader rd = new BufferedReader(new InputStreamReader(is));
-                StringBuilder response = new StringBuilder();
-                String line;
-                while ((line = rd.readLine()) != null) {
-                    response.append(line);
-                    token_token_secret.put("", response);
-                }
-                rd.close();
-                Access_Token(token_token_secret);
-                return token_token_secret;
+                updateTokenJsonObject(params);
+                Access_Token(token_token_secret_json_object);
+                return token_token_secret_json_object;
 
             } catch (JSONException e) {
                 e.printStackTrace();
             } catch (IOException e) {
                 Log.i(getClass().getCanonicalName(), "Please Check your App id,Key,Secret");
-                return token_token_secret;
+                return token_token_secret_json_object;
             }
 
             return null;
@@ -165,30 +173,9 @@ public class OauthNetpieLibrary extends Activity {
     public class CheckInvalid extends AsyncTask<String, Void, String> {
 
         protected String doInBackground(String... params) {
-            URL Url;
             try {
-                Url = new URL(params[0]);
-                URLConnection conn = Url.openConnection();
-                ((HttpURLConnection) conn).setRequestMethod("POST");
-                conn.setDoOutput(true);
-                conn.setReadTimeout(3000);
-                conn.setRequestProperty("Authorization", authorization);
-                OutputStreamWriter writer = new OutputStreamWriter(conn.getOutputStream());
-                writer.write(authorization);
-                writer.flush();
-                InputStream is = conn.getInputStream();
-                BufferedReader rd = new BufferedReader(new InputStreamReader(is));
-                StringBuilder response = new StringBuilder();
-                String line;
-                while ((line = rd.readLine()) != null) {
-                    response.append(line);
-                    token_token_secret.put("", response);
-                }
-
-                rd.close();
+                updateTokenJsonObject(params);
                 return "yes";
-
-
             } catch (SocketTimeoutException e) {
                 return "id";
             } catch (UnknownHostException e) {
@@ -278,7 +265,7 @@ public class OauthNetpieLibrary extends Activity {
         return query_pairs;
     }
 
-    public void Access_Token(JSONObject Request_token) { //token_token_secret
+    public void Access_Token(JSONObject Request_token) { //token_token_secret_json_object
         Map<String, String> request;
         Map<String, String> access;
         try {
