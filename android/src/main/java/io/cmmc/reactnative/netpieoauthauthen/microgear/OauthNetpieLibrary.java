@@ -14,24 +14,48 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.io.OutputStreamWriter;
 import java.io.UnsupportedEncodingException;
-import java.net.HttpURLConnection;
-import java.net.SocketTimeoutException;
 import java.net.URL;
 import java.net.URLConnection;
-import java.net.UnknownHostException;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 
+import okhttp3.Interceptor;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.RequestBody;
+import okhttp3.Response;
+
 
 public class OauthNetpieLibrary extends Activity {
+
+    class LoggingInterceptor implements Interceptor {
+        @Override
+        public Response intercept(Interceptor.Chain chain) throws IOException {
+            Request request = chain.request();
+
+            long t1 = System.nanoTime();
+            Log.i(TAG, String.format("Sending request %s on %s%n%s",
+                    request.url(), chain.connection(), request.headers()));
+
+            Response response = chain.proceed(request);
+
+            long t2 = System.nanoTime();
+            Log.d(TAG, String.format("Received response for %s in %.1fms%n%s",
+                    response.request().url(), (t2 - t1) / 1e6d, response.headers()));
+
+            return response;
+        }
+    }
+
+    private static final String TAG = "NAT_NETPIE_OAUTH_NETPIE";
+    OkHttpClient client;
     public String pathtowrite;
     public String authorize_callback;
     public static String _Key;
@@ -56,12 +80,19 @@ public class OauthNetpieLibrary extends Activity {
         while ((line = br.readLine()) != null) {
             sb.append(line);
         }
-
         return sb.toString();
     }
-    public String create(String appId, String appKey, String appSecret, String path) {
-        pathtowrite = path;
 
+    public String create(String appId, String appKey, String appSecret, String path) {
+        client = new OkHttpClient.Builder()
+                .addInterceptor(new LoggingInterceptor())
+                .connectTimeout(3, TimeUnit.SECONDS)
+                .writeTimeout(3, TimeUnit.SECONDS)
+                .readTimeout(3, TimeUnit.SECONDS)
+                .build();
+
+
+        pathtowrite = path;
         authorize_callback = "scope=&appid=" + appId + "&mgrev=NJS1a&verifier=NJS1a";
 
         _Key = appKey;
@@ -75,10 +106,14 @@ public class OauthNetpieLibrary extends Activity {
                 // no key node
                 // then request oauth;
                 authorization = request.OAuth(appKey, appSecret, authorize_callback);
-                String str_result = new
-                        CheckInvalid().execute("http://ga.netpie.io:8080/api/rtoken").get();
+                String str_result = requestOauthAndUpdateTokenObject("http://ga.netpie.io:8080/api/rtoken");
+
+//                str_result = post("http://ga.netpie.io:8080/api/rtoken");
+                Log.d(TAG, str_result);
                 if (!keyNode.equals(appKey)) {
+                    // always yes
                     if (str_result.equals("yes")) {
+                        Log.d("NAT", "HIT: yes!");
                         rf = new Revoketoken();
                         rf.execute("http://ga.netpie.io:8080/api/revoke/");
                     }
@@ -88,24 +123,15 @@ public class OauthNetpieLibrary extends Activity {
             }
         } catch (FileNotFoundException e) {
             authorization = request.OAuth(appKey, appSecret, authorize_callback);
-            simpleTask = new SimpleTask();
-
-            try {
-                simpleTask.execute("http://ga.netpie.io:8080/api/rtoken").get();
-            } catch (InterruptedException e1) {
-                e1.printStackTrace();
-            } catch (ExecutionException e1) {
-                e1.printStackTrace();
-            }
-        } catch (IOException e) {
-            e.printStackTrace();
+            requestOauthAndUpdateTokenObject("http://ga.netpie.io:8080/api/rtoken");
+            saveTokenObjectToFile(token_token_secret_json_object);
         } catch (JSONException e) {
             e.printStackTrace();
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        } catch (ExecutionException e) {
+        }
+        catch (IOException e) {
             e.printStackTrace();
         }
+
 
         return "";
     }
@@ -127,44 +153,53 @@ public class OauthNetpieLibrary extends Activity {
         }
     }
 
-
-    public void requestOauthAndUpdateTokenObject(String... params) throws JSONException, IOException {
-        URL Url;
-        Url = new URL(params[0]);
-        URLConnection conn = Url.openConnection();
-        conn.setReadTimeout(3000);
-        ((HttpURLConnection) conn).setRequestMethod("POST");
-        conn.setDoOutput(true);
-        conn.setRequestProperty("Authorization", authorization);
-        OutputStreamWriter writer = new OutputStreamWriter(conn.getOutputStream());
-        writer.write(authorization);
-        writer.flush();
-        InputStream is = conn.getInputStream();
-        BufferedReader bufferReader = new BufferedReader(new InputStreamReader(is));
-        StringBuilder response = new StringBuilder();
-        String line;
-        while ((line = bufferReader.readLine()) != null) {
-            response.append(line);
+    public String requestOauthAndUpdateTokenObject(String... params) {
+        String response = post(params[0]);
+        Log.d(TAG, "RESPONSE:: >> " + response);
+        Log.d(TAG, "RESPONSE:: >> " + response);
+        Log.d(TAG, "RESPONSE:: >> " + response);
+        Log.d(TAG, "RESPONSE:: >> " + response);
+        try {
             token_token_secret_json_object.put("", response);
+        } catch (JSONException e) {
+            e.printStackTrace();
         }
-        bufferReader.close();
+        return response;
     }
 
 
-    public class SimpleTask extends AsyncTask<String, Void, JSONObject> {
-
-        protected JSONObject doInBackground(String... params) {
-            try {
-                requestOauthAndUpdateTokenObject(params);
-                saveTokenObjectToFile(token_token_secret_json_object);
-                return token_token_secret_json_object;
-            } catch (JSONException e) {
-                e.printStackTrace();
-            } catch (IOException e) {
-                Log.i(getClass().getCanonicalName(), "Please Check your App id,Key,Secret");
-                return token_token_secret_json_object;
+    String post(String url) {
+//        RequestBody formBody = new FormBody.Builder()
+//                .add("Authorization", authorization)
+//                .build();
+        RequestBody reqbody = RequestBody.create(null, new byte[0]);
+        Request request = new Request.Builder()
+                .url(url)
+                .addHeader("Authorization", authorization)
+                .post(reqbody)
+                .build();
+        try {
+            Response response = client.newCall(request).execute();
+            Log.d(TAG, "---->>> post: ");
+            if (response.isSuccessful()) {
+                token_token_secret_json_object.put("", response.body().string());
+                Log.d(TAG, "-----> [YES]");
+                return "yes";
+            } else {
+                Log.d(TAG, "-----> [ID]");
+                return "secretandid";
             }
+        } catch (IOException ex) {
+            return "id";
+        } catch (JSONException e) {
+            e.printStackTrace();
+            return "";
+        }
+    }
 
+    public class SimpleTask extends AsyncTask<String, Void, JSONObject> {
+        protected JSONObject doInBackground(String... params) {
+            requestOauthAndUpdateTokenObject(params);
             return null;
         }
     }
@@ -172,19 +207,7 @@ public class OauthNetpieLibrary extends Activity {
     public class CheckInvalid extends AsyncTask<String, Void, String> {
 
         protected String doInBackground(String... params) {
-            try {
-                requestOauthAndUpdateTokenObject(params);
-                return "yes";
-            } catch (SocketTimeoutException e) {
-                return "id";
-            } catch (UnknownHostException e) {
-                Log.i(getClass().getCanonicalName(), "NO INTERNET");
-            } catch (IOException e) {
-                return "secretandid";
-            } catch (JSONException e) {
-                e.printStackTrace();
-            }
-            return null;
+            return requestOauthAndUpdateTokenObject(params);
         }
     }
 
@@ -207,7 +230,7 @@ public class OauthNetpieLibrary extends Activity {
                     response.append(line);
                 }
                 rd.close();
-                Log.d("response", response + "");
+                Log.d(TAG, response + "");
             } catch (IOException e) {
                 e.printStackTrace();
             }
@@ -217,8 +240,10 @@ public class OauthNetpieLibrary extends Activity {
         public String ReadFile() {
             try {
                 JSONObject json = new JSONObject(readJsonFromFile());
-                token = json.getJSONObject("_").getJSONObject("accesstoken").getString("token");
-                revokecode = json.getJSONObject("_").getJSONObject("accesstoken").getString("revokecode");
+                JSONObject rootNode = json.getJSONObject("_");
+                JSONObject accessTokenNode = rootNode.getJSONObject("accesstoken");
+                token = accessTokenNode.getString("token");
+                revokecode = accessTokenNode.getString("revokecode");
             } catch (FileNotFoundException e) {
                 e.printStackTrace();
             } catch (IOException e) {
