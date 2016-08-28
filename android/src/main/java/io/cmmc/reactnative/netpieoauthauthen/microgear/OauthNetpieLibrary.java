@@ -276,10 +276,13 @@ public class OauthNetpieLibrary extends Activity {
         Map<String, String> access;
         try {
             request = splitQuery_Request(Request_token);
+
             String request_token = request.get("oauth_token");
             String request_token_secret = request.get("oauth_token_secret");
+
             JSONObject Request_Access_token = new OAuth1_0a_Access().OAuth(_Key, _Secret, request_token,
                     request_token_secret);
+
             access = splitQuery_Access(Request_Access_token);
             String access_token = access.get("oauth_token");
             String access_token_secret = access.get("oauth_token_secret");

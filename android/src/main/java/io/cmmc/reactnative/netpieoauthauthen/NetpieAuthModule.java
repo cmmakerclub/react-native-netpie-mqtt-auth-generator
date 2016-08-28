@@ -21,7 +21,6 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
-import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.security.InvalidKeyException;
@@ -58,6 +57,7 @@ public class NetpieAuthModule extends ReactContextBaseJavaModule {
         super(reactContext);
         mContext = reactContext;
         context = reactContext.getApplicationContext();
+        oauthNetpieLibrary = new OauthNetpieLibraryVersion2(mContext);
     }
 
     @Override
@@ -84,20 +84,16 @@ public class NetpieAuthModule extends ReactContextBaseJavaModule {
         String _appKey = configMap.getString("appKey");
         String _appSecret = configMap.getString("appSecret");
 
-
-
         appid = _appId;
         appkey = _appKey;
         appsecret = _appSecret;
-
-        oauthNetpieLibrary = new OauthNetpieLibraryVersion2(mContext);
 
         cDir = context.getCacheDir();
         tempFile = new File(cDir.getPath() + "/" + name);
         String a = oauthNetpieLibrary.create(appid, appkey, appsecret, tempFile.toString());
 
         if (a.equals("yes")) {
-            Log.d(TAG, "config: YES");
+            Log.d(TAG, "[AUTH MODULE] config: YES");
             brokerconnect(appsecret);
             WritableMap params = new WritableNativeMap();
             params.putString("appid", appid);
@@ -118,18 +114,19 @@ public class NetpieAuthModule extends ReactContextBaseJavaModule {
 //            Log.d(TAG, "onCreate: App id,Key or Secret Invalid");
             //brokerconnect(appid, key, secret);
         }
-        Log.d(TAG, "[CONFIG]: >>> ");
-        BufferedReader br = null;
-        try {
-            br = new BufferedReader(new FileReader(cDir.getPath() + "/" + name));
-            for (String line; (line = br.readLine()) != null; ) {
-                System.out.print(line);
-            }
-        } catch (FileNotFoundException e) {
-            e.printStackTrace();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+
+//        Log.d(TAG, "[CONFIG]: >>> ");
+//        BufferedReader br = null;
+//        try {
+//            br = new BufferedReader(new FileReader(cDir.getPath() + "/" + name));
+//            for (String line; (line = br.readLine()) != null; ) {
+//                System.out.print(line);
+//            }
+//        } catch (FileNotFoundException e) {
+//            e.printStackTrace();
+//        } catch (IOException e) {
+//            e.printStackTrace();
+//        }
 
     }
 
