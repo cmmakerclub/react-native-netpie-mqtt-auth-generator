@@ -64,6 +64,14 @@ public class AppHelper {
         return mSharedPref.getString(key, fallback);
     }
 
+    public static String getString(Context context, String key, String fallback) {
+        SharedPreferences mSharedPref = context.getSharedPreferences(Constants.APP_PREF,
+                Context.MODE_PRIVATE);
+
+
+        return mSharedPref.getString(key, fallback);
+    }
+
 
     public static boolean xset(Object object, String fieldName, Object fieldValue) {
         Class<?> clazz = object.getClass();
@@ -106,7 +114,7 @@ public class AppHelper {
     }
 
 
-    public static boolean isFirstRun(Context context) {
+    public static boolean isMicroGearCached(Context context) {
         SharedPreferences sp = AppHelper.getSharedPreference(context);
         boolean status = sp.getBoolean(Constants.RUN_FIRST_TIME, true);
 
@@ -124,7 +132,7 @@ public class AppHelper {
 
     }
 
-    public static boolean setFirstRun(Context context, boolean b) {
+    public static boolean cacheMicroGearToken(Context context, boolean b) {
         return AppHelper.setBoolean(context, Constants.RUN_FIRST_TIME, b);
     }
 

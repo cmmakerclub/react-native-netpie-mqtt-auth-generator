@@ -90,7 +90,7 @@ public class OauthNetpieLibraryVersion2 {
         mAppSecret = appSecret;
 
         mAuthorizationCallback = "scope=&appid=" + mAppId + "&mgrev=NJS1a&verifier=NJS1a";
-        if (AppHelper.isFirstRun(mContext)) {
+        if (AppHelper.isMicroGearCached(mContext)) {
             mAuthorization = mOAuthRequest.OAuth(appKey, appSecret, mAuthorizationCallback);
             Log.d(TAG, "[create: ] authorization => " + mAuthorization);
             sendPostRequestToNetpie("http://ga.netpie.io:8080/api/rtoken",
@@ -103,18 +103,22 @@ public class OauthNetpieLibraryVersion2 {
                                 updateOAuthRequestToken(token);
                                 updateOAuthAccessToken();
                                 saveAllOAuthToken();
+                                AppHelper.cacheMicroGearToken(mContext, false);
                             }
                         }
                     });
-
+        } else {
             try {
-                JSONObject obj = new JSONObject(AppHelper.getString(mContext, Constants.MICROGEAR_CACHE));
+                JSONObject obj = new JSONObject(AppHelper.getString(mContext, Constants.MICROGEAR_CACHE, "{}"));
                 Log.d(TAG, "create: [PARSED JSON OBJECT]" + obj.toString());
+                JSONObject rootNode = obj.getJSONObject("_");
+                String cachedKey = rootNode.getString("key");
+                if (cachedKey.equals(mAppKey)) {
+                    Log.d(TAG, "create: [VALID APP KEY] " + mAppKey);
+                }
             } catch (JSONException e) {
                 e.printStackTrace();
             }
-        } else {
-
         }
         return "String";
     }
