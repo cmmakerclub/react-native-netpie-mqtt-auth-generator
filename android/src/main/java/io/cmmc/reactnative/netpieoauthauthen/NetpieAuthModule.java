@@ -21,6 +21,7 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.security.InvalidKeyException;
@@ -31,7 +32,7 @@ import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 
 import io.cmmc.reactnative.netpieoauthauthen.microgear.Base64;
-import io.cmmc.reactnative.netpieoauthauthen.microgear.OauthNetpieLibrary;
+import io.cmmc.reactnative.netpieoauthauthen.microgear.OauthNetpieLibraryVersion2;
 
 /**
  * Created by Nat on 8/26/16 AD.
@@ -40,7 +41,7 @@ public class NetpieAuthModule extends ReactContextBaseJavaModule {
     public ReactApplicationContext mContext;
     public static final String TAG = NetpieAuthModule.class.getSimpleName();
 
-    public OauthNetpieLibrary oauthNetpieLibrary;
+    public OauthNetpieLibraryVersion2 oauthNetpieLibrary;
 
     public String name = "microgear.cache";
     public File tempFile;
@@ -83,11 +84,14 @@ public class NetpieAuthModule extends ReactContextBaseJavaModule {
         String _appKey = configMap.getString("appKey");
         String _appSecret = configMap.getString("appSecret");
 
+
+
         appid = _appId;
         appkey = _appKey;
         appsecret = _appSecret;
 
-        oauthNetpieLibrary = new OauthNetpieLibrary();
+        oauthNetpieLibrary = new OauthNetpieLibraryVersion2(mContext);
+
         cDir = context.getCacheDir();
         tempFile = new File(cDir.getPath() + "/" + name);
         String a = oauthNetpieLibrary.create(appid, appkey, appsecret, tempFile.toString());
@@ -114,6 +118,18 @@ public class NetpieAuthModule extends ReactContextBaseJavaModule {
 //            Log.d(TAG, "onCreate: App id,Key or Secret Invalid");
             //brokerconnect(appid, key, secret);
         }
+        Log.d(TAG, "[CONFIG]: >>> ");
+        BufferedReader br = null;
+        try {
+            br = new BufferedReader(new FileReader(cDir.getPath() + "/" + name));
+            for (String line; (line = br.readLine()) != null; ) {
+                System.out.print(line);
+            }
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
 
     }
 
@@ -123,8 +139,8 @@ public class NetpieAuthModule extends ReactContextBaseJavaModule {
         StringBuilder sb = new StringBuilder();
         String line;
         String secrettoken, secretid, hkey, ckappkey;
-        FileInputStream fis;
-        try {
+            FileInputStream fis;
+            try {
             fis = new FileInputStream(tempFile.toString());
             br = new BufferedReader(new InputStreamReader(fis));
             while ((line = br.readLine()) != null) {
