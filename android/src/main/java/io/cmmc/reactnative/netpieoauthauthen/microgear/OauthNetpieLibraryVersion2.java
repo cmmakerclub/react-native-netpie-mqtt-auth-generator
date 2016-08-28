@@ -29,6 +29,10 @@ public class OauthNetpieLibraryVersion2 {
 
     private String mOauth_request_token;
     private String mOauth_request_token_secret;
+    private String mAccessToken;
+    private String mAccessTokenSecret;
+    private String mRevokeToken;
+    private String mEndPoint;
 
     public interface RequestNetpieCallback {
         public void onFinished(String result, String token);
@@ -36,7 +40,7 @@ public class OauthNetpieLibraryVersion2 {
 
     private static final String TAG = "OauthNetpieLibV2";
     private OkHttpClient client;
-    private String authorize_callback;
+    private String mAuthorizationCallback;
     private Context mContext;
 
     private String mAppId;
@@ -44,6 +48,8 @@ public class OauthNetpieLibraryVersion2 {
     private String mAppSecret;
     private String mAuthorization;
     private OAuth1_0a_Request mOAuthRequest;
+
+    private JSONObject mJSONTokenObject;
 
     class LoggingInterceptor implements Interceptor {
         @Override
@@ -68,6 +74,7 @@ public class OauthNetpieLibraryVersion2 {
     public OauthNetpieLibraryVersion2(Context context) {
         super();
         mContext = context;
+        mJSONTokenObject = new JSONObject();
         mOAuthRequest = new OAuth1_0a_Request();
         client = new OkHttpClient.Builder()
 //                .addInterceptor(new LoggingInterceptor())
@@ -81,10 +88,10 @@ public class OauthNetpieLibraryVersion2 {
         mAppId = appId;
         mAppKey = appKey;
         mAppSecret = appSecret;
-        authorize_callback = "scope=&appid=" + appId + "&mgrev=NJS1a&verifier=NJS1a";
 
+        mAuthorizationCallback = "scope=&appid=" + mAppId + "&mgrev=NJS1a&verifier=NJS1a";
         if (AppHelper.isFirstRun(mContext)) {
-            mAuthorization = mOAuthRequest.OAuth(appKey, appSecret, authorize_callback);
+            mAuthorization = mOAuthRequest.OAuth(appKey, appSecret, mAuthorizationCallback);
             Log.d(TAG, "[create: ] authorization => " + mAuthorization);
             sendPostRequestToNetpie("http://ga.netpie.io:8080/api/rtoken",
                     mAuthorization, new RequestNetpieCallback() {
@@ -95,13 +102,44 @@ public class OauthNetpieLibraryVersion2 {
                             if (!token.isEmpty()) {
                                 updateOAuthRequestToken(token);
                                 updateOAuthAccessToken();
+                                saveAllOAuthToken();
                             }
                         }
+
+
                     });
+
+            try {
+                JSONObject obj = new JSONObject(AppHelper.getString(mContext, "JSON_CACHE"));
+                Log.d(TAG, "create: [PARSED JSON OBJECT]" + obj.toString());
+            } catch (JSONException e) {
+                e.printStackTrace();
+            }
         } else {
 
         }
         return "String";
+    }
+
+    private void saveAllOAuthToken() {
+        JSONObject underscoreNode = new JSONObject();
+        JSONObject accessTokenChild = new JSONObject();
+
+        try {
+            accessTokenChild.put("token", mAccessToken);
+            accessTokenChild.put("secret", mAccessTokenSecret);
+            accessTokenChild.put("endpoint", mEndPoint);
+            accessTokenChild.put("revokecode", mRevokeToken);
+            underscoreNode.putOpt("key", mAppKey);
+            underscoreNode.put("requesttoken", "null");
+            underscoreNode.put("accesstoken", accessTokenChild);
+            mJSONTokenObject.put("_", underscoreNode);
+
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
+
+        AppHelper.setString(mContext, "JSON_CACHE", mJSONTokenObject.toString());
     }
 
     private void updateOAuthAccessToken() {
@@ -110,17 +148,18 @@ public class OauthNetpieLibraryVersion2 {
 
         try {
             String oauth_acess_token_string = Request_Access_token.get("").toString();
-            Log.d(TAG, "[ACCESS TOKEN STRING] onFinished: = " + oauth_acess_token_string);
             Map<String, String> access = processToken(oauth_acess_token_string);
+
+            mAccessToken = access.get("oauth_token");
+            mAccessTokenSecret = access.get("oauth_token_secret");
+            mEndPoint = access.get("endpoint");
+            mRevokeToken = Signature(mAppSecret, mAccessTokenSecret, mAccessToken);
+
+            Log.d(TAG, "[ACCESS TOKEN STRING] onFinished: = " + oauth_acess_token_string);
             Log.d(TAG, "onFinished: [ACCESS TOKEN RESP] " + access.toString());
-
-            String access_token = access.get("oauth_token");
-            String access_token_secret = access.get("oauth_token_secret");
-            String revoketoken = Signature(mAppSecret, access_token_secret, access_token);
-
-            Log.d(TAG, "access_token: " + access_token);
-            Log.d(TAG, "access_token_secret: " + access_token_secret);
-            Log.d(TAG, "revoketoken: " + revoketoken);
+            Log.d(TAG, "mAccessToken: " + mAccessToken);
+            Log.d(TAG, "mAccessTokenSecret: " + mAccessTokenSecret);
+            Log.d(TAG, "mRevokeToken: " + mRevokeToken);
             Log.d(TAG, "processToken: [OAuth Access]" + Request_Access_token.toString());
 
         } catch (JSONException e) {
@@ -157,15 +196,12 @@ public class OauthNetpieLibraryVersion2 {
     private Map<String, String> processToken(String request_token) {
         Map<String, String> query_pairs = new LinkedHashMap<String, String>();
         String[] pairs = request_token.split("&");
-        Log.d(TAG, "[1] processToken: " + pairs.toString());
         int i = 0;
         for (String pair : pairs) {
             String[] o = pair.split("=");
             query_pairs.put(o[0], o[1]);
         }
-
         Log.d(TAG, "processToken: " + query_pairs.toString());
-
         return query_pairs;
 
     }
