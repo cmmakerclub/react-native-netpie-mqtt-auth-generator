@@ -16,6 +16,8 @@ import java.util.concurrent.TimeUnit;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 
+import okhttp3.Call;
+import okhttp3.Callback;
 import okhttp3.Interceptor;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
@@ -90,7 +92,7 @@ public class OauthNetpieLibraryVersion2 {
         mAppSecret = appSecret;
 
         mAuthorizationCallback = "scope=&appid=" + mAppId + "&mgrev=NJS1a&verifier=NJS1a";
-        if (AppHelper.isMicroGearCached(mContext)) {
+        if (!AppHelper.isMicroGearCached(mContext)) {
             mAuthorization = mOAuthRequest.OAuth(appKey, appSecret, mAuthorizationCallback);
             Log.d(TAG, "[create: ] authorization => " + mAuthorization);
             sendPostRequestToNetpie("http://ga.netpie.io:8080/api/rtoken",
@@ -103,7 +105,7 @@ public class OauthNetpieLibraryVersion2 {
                                 updateOAuthRequestToken(token);
                                 updateOAuthAccessToken();
                                 saveAllOAuthToken();
-                                AppHelper.cacheMicroGearToken(mContext, false);
+                                AppHelper.cacheMicroGearToken(mContext, true);
                             }
                         }
                     });
@@ -113,14 +115,46 @@ public class OauthNetpieLibraryVersion2 {
                 Log.d(TAG, "create: [PARSED JSON OBJECT]" + obj.toString());
                 JSONObject rootNode = obj.getJSONObject("_");
                 String cachedKey = rootNode.getString("key");
+                mJSONTokenObject = obj;
                 if (cachedKey.equals(mAppKey)) {
                     Log.d(TAG, "create: [VALID APP KEY] " + mAppKey);
+                } else {
+                    mRevokeToken = mJSONTokenObject.getJSONObject("_").getJSONObject("accesstoken").
+                            getString("revokecode");
+                    mAccessToken = mJSONTokenObject.getJSONObject("_").getJSONObject("accesstoken").
+                            getString("token");
+                    revokeAccessToken();
                 }
             } catch (JSONException e) {
                 e.printStackTrace();
             }
         }
         return "String";
+    }
+
+    private void revokeAccessToken() {
+        String url = "http://ga.netpie.io:8080/api/revoke/" + mAccessToken + "/" + mRevokeToken;
+
+        url = url.replace("\\/", "/");
+        Request request = new Request.Builder()
+                .url(url)
+                .get()
+                .build();
+        client.newCall(request).enqueue(new Callback() {
+            @Override
+            public void onFailure(Call call, IOException e) {
+                Log.d(TAG, "onFailure: ");
+                Log.d(TAG, "onFailure: ");
+                Log.d(TAG, "onFailure: ");
+                Log.d(TAG, "onFailure: ");
+            }
+
+            @Override
+            public void onResponse(Call call, Response response) throws IOException {
+                Log.d(TAG, "onResponse: " + response.body().string());
+                AppHelper.cacheMicroGearToken(mContext, false);
+            }
+        });
     }
 
     private void saveAllOAuthToken() {

@@ -116,7 +116,7 @@ public class AppHelper {
 
     public static boolean isMicroGearCached(Context context) {
         SharedPreferences sp = AppHelper.getSharedPreference(context);
-        boolean status = sp.getBoolean(Constants.RUN_FIRST_TIME, true);
+        boolean status = sp.getBoolean(Constants.RUN_FIRST_TIME, false);
 
         return status;
     }
