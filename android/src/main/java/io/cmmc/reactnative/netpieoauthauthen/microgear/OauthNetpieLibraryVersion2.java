@@ -77,7 +77,7 @@ public class OauthNetpieLibraryVersion2 {
         mJSONTokenObject = new JSONObject();
         mOAuthRequest = new OAuth1_0a_Request();
         client = new OkHttpClient.Builder()
-//                .addInterceptor(new LoggingInterceptor())
+                .addInterceptor(new LoggingInterceptor())
                 .connectTimeout(3, TimeUnit.SECONDS)
                 .writeTimeout(3, TimeUnit.SECONDS)
                 .readTimeout(3, TimeUnit.SECONDS)
@@ -105,12 +105,10 @@ public class OauthNetpieLibraryVersion2 {
                                 saveAllOAuthToken();
                             }
                         }
-
-
                     });
 
             try {
-                JSONObject obj = new JSONObject(AppHelper.getString(mContext, "JSON_CACHE"));
+                JSONObject obj = new JSONObject(AppHelper.getString(mContext, Constants.MICROGEAR_CACHE));
                 Log.d(TAG, "create: [PARSED JSON OBJECT]" + obj.toString());
             } catch (JSONException e) {
                 e.printStackTrace();
@@ -139,7 +137,7 @@ public class OauthNetpieLibraryVersion2 {
             e.printStackTrace();
         }
 
-        AppHelper.setString(mContext, "JSON_CACHE", mJSONTokenObject.toString());
+        AppHelper.setString(mContext, Constants.MICROGEAR_CACHE, mJSONTokenObject.toString());
     }
 
     private void updateOAuthAccessToken() {
