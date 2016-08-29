@@ -115,25 +115,51 @@ public class OauthNetpieLibraryVersion2 {
                         }
                     });
         } else {
-            try {
-                JSONObject obj = new JSONObject(AppHelper.getString(mContext, Constants.MICROGEAR_CACHE, "{}"));
-                Log.d(TAG, "create: [PARSED JSON OBJECT]" + obj.toString());
-                JSONObject rootNode = obj.getJSONObject("_");
-                String cachedKey = rootNode.getString("key");
-                mJSONTokenObject = obj;
-                if (cachedKey.equals(mAppKey)) {
-                    Log.d(TAG, "create: [VALID APP KEY] " + mAppKey);
-                } else {
-                    JSONObject accessToken = mJSONTokenObject.getJSONObject("_").getJSONObject("accesstoken");
-                    mOAuthAccessToken.revoketoken = accessToken.getString("revokecode");
-                    mOAuthAccessToken.oauth_token = accessToken.getString("token");
-                    revokeAccessToken(mOAuthAccessToken);
-                }
-            } catch (JSONException e) {
-                e.printStackTrace();
+            String cachedKey = getCachedAppKey();
+            if (cachedKey.equals(mAppKey)) {
+                Log.d(TAG, "create: [VALID APP KEY] " + mAppKey);
+            } else {
+
+                mOAuthAccessToken.revoketoken = getAccessTokenFromCache("revokecode");
+                mOAuthAccessToken.oauth_token = getAccessTokenFromCache("token");
+
+                revokeAccessToken(mOAuthAccessToken);
             }
         }
         return "";
+    }
+
+    private JSONObject getJsonObjectFromCache() {
+        JSONObject obj = null;
+        try {
+            obj = new JSONObject(AppHelper.getString(mContext, Constants.MICROGEAR_CACHE, "{}"));
+            Log.d(TAG, "create: [PARSED JSON OBJECT]" + obj.toString());
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
+        return obj;
+    }
+
+    private String getCachedAppKey() {
+        JSONObject jsonObject = getJsonObjectFromCache();
+        String cachedKey = "";
+        try {
+            cachedKey = jsonObject.getJSONObject("_").getString("key");
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
+
+        return cachedKey;
+    }
+
+    private String getAccessTokenFromCache(String key) {
+        try {
+            JSONObject accessToken = getJsonObjectFromCache().getJSONObject("_").getJSONObject("accesstoken");
+            return accessToken.getString(key);
+        } catch (JSONException e) {
+            e.printStackTrace();
+            return "";
+        }
     }
 
     private void revokeAccessToken(OAuthAccessToken oAuthAccessToken) {
