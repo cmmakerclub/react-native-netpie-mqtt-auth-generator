@@ -54,8 +54,9 @@ public class NetpieAuthModule extends ReactContextBaseJavaModule {
     private String mqttuser, mqttclientid, mqttpassword;
 
     public interface NetpieAuthCallback {
-        public void onFinished();
+        public void onFinished(String result);
     }
+
     public NetpieAuthModule(ReactApplicationContext reactContext) {
         super(reactContext);
         mContext = reactContext;
@@ -93,35 +94,41 @@ public class NetpieAuthModule extends ReactContextBaseJavaModule {
 
         cDir = context.getCacheDir();
         tempFile = new File(cDir.getPath() + "/" + name);
-        String a = oauthNetpieLibrary.create(appid, appkey, appsecret, new NetpieAuthCallback() {
-            @Override
-            public void onFinished() {
 
+        oauthNetpieLibrary.create(appid, appkey, appsecret, new NetpieAuthCallback() {
+            @Override
+            public void onFinished(String result) {
+                Log.d(TAG, "onFinished: [RESULT] >> " + result);
+                Log.d(TAG, "onFinished: [RESULT] >> " + result);
+                Log.d(TAG, "onFinished: [RESULT] >> " + result);
+                Log.d(TAG, "onFinished: [RESULT] >> " + result);
+
+                if (result.equals("yes")) {
+                    callback.invoke(true, "RESULT = " + result);
+//            Log.d(TAG, "[AUTH MODULE] config: YES");
+////            brokerconnect(appsecret);
+//            WritableMap params = new WritableNativeMap();
+//            params.putString("appid", appid);
+//            params.putString("appkey", appkey);
+//            params.putString("appsecret", appsecret);
+//            params.putString("mqttusername", mqttuser);
+//            params.putString("mqttclientid", mqttclientid);
+//            params.putString("mqttpassword", mqttpassword);
+//            callback.invoke(false, params);
+                } else if (result.equals("id")) {
+                    callback.invoke(true, "App id Invalid.");
+                    Log.d(TAG, "onCreate: App id Invalid");
+                } else if (result.equals("secretandid")) {
+                    callback.invoke(true, "App id,Key or Secret Invalid.");
+                    Log.d(TAG, "onCreate: App id,Key or Secret Invalid");
+                } else {
+                    callback.invoke(true, "Error: unknown reason.");
+//            Log.d(TAG, "onCreate: App id,Key or Secret Invalid");
+                    //brokerconnect(appid, key, secret);
+                }
             }
         });
 
-        if (a.equals("yes")) {
-            Log.d(TAG, "[AUTH MODULE] config: YES");
-//            brokerconnect(appsecret);
-            WritableMap params = new WritableNativeMap();
-            params.putString("appid", appid);
-            params.putString("appkey", appkey);
-            params.putString("appsecret", appsecret);
-            params.putString("mqttusername", mqttuser);
-            params.putString("mqttclientid", mqttclientid);
-            params.putString("mqttpassword", mqttpassword);
-            callback.invoke(false, params);
-        } else if (a.equals("id")) {
-            callback.invoke(true, "App id Invalid.");
-            Log.d(TAG, "onCreate: App id Invalid");
-        } else if (a.equals("secretandid")) {
-            callback.invoke(true, "App id,Key or Secret Invalid.");
-            Log.d(TAG, "onCreate: App id,Key or Secret Invalid");
-        } else {
-            callback.invoke(true, "Error: unknown reason.");
-//            Log.d(TAG, "onCreate: App id,Key or Secret Invalid");
-            //brokerconnect(appid, key, secret);
-        }
     }
 
     private void brokerconnect(String secret) {
@@ -130,8 +137,8 @@ public class NetpieAuthModule extends ReactContextBaseJavaModule {
         StringBuilder sb = new StringBuilder();
         String line;
         String secrettoken, secretid, hkey, ckappkey;
-            FileInputStream fis;
-            try {
+        FileInputStream fis;
+        try {
             fis = new FileInputStream(tempFile.toString());
             br = new BufferedReader(new InputStreamReader(fis));
             while ((line = br.readLine()) != null) {

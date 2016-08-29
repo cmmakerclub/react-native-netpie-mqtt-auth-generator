@@ -95,9 +95,7 @@ public class OauthNetpieLibraryVersion2 {
         mAppId = appId;
         mAppKey = appKey;
         mAppSecret = appSecret;
-
         String _result = "";
-
         if (!AppHelper.isMicroGearCached(mContext)) {
             fetchAndSaveMicroGear(mAppId, mAppKey, mAppSecret, authCallback);
         } else {
@@ -106,7 +104,7 @@ public class OauthNetpieLibraryVersion2 {
             Log.d(TAG, "FOUND CACHED MICROGEAR >> with appKey = " + mAppKey);
             if (cachedKey.equals(mAppKey)) {
                 Log.d(TAG, "and [VALID APP KEY] ");
-                authCallback.onFinished();
+                authCallback.onFinished("yes");
             } else {
                 Log.d(TAG, "BUT [DIFFERENT APP KEY] so REVOKE old Access Token ");
                 revokeAccessToken(mOAuthAccessToken, authCallback);
@@ -133,8 +131,8 @@ public class OauthNetpieLibraryVersion2 {
                                     appSecret, _oAuthRequestToken);
                             saveAllOAuthToken(mOAuthAccessToken, appKey);
                             AppHelper.cacheMicroGearToken(mContext, true);
-                            authCallback.onFinished();
                         }
+                        authCallback.onFinished(result);
                     }
                 });
     }
