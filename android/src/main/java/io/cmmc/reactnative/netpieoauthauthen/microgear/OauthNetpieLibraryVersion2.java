@@ -16,6 +16,7 @@ import java.util.concurrent.TimeUnit;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 
+import io.cmmc.reactnative.netpieoauthauthen.NetpieAuthModule;
 import okhttp3.Call;
 import okhttp3.Callback;
 import okhttp3.Interceptor;
@@ -45,7 +46,6 @@ public class OauthNetpieLibraryVersion2 {
 
     private static final String TAG = "OauthNetpieLibV2";
     private OkHttpClient client;
-    private String mAuthorizationCallback;
     private Context mContext;
 
     private String mAppId;
@@ -91,45 +91,49 @@ public class OauthNetpieLibraryVersion2 {
                 .build();
     }
 
-    public String create(String appId, String appKey, String appSecret, final String path) {
+    public String create(String appId, String appKey, String appSecret, NetpieAuthModule.NetpieAuthCallback authCallback) {
         mAppId = appId;
         mAppKey = appKey;
         mAppSecret = appSecret;
 
+        String _result = "";
+
         if (!AppHelper.isMicroGearCached(mContext)) {
-            fetchAndSaveMicroGear(mAppKey, mAppSecret);
+            fetchAndSaveMicroGear(mAppId, mAppKey, mAppSecret, authCallback);
         } else {
             restoreAccessTokenFromCache();
             String cachedKey = getAppKeyFromCache();
             Log.d(TAG, "FOUND CACHED MICROGEAR >> with appKey = " + mAppKey);
             if (cachedKey.equals(mAppKey)) {
                 Log.d(TAG, "and [VALID APP KEY] ");
+                authCallback.onFinished();
             } else {
                 Log.d(TAG, "BUT [DIFFERENT APP KEY] so REVOKE old Access Token ");
-                revokeAccessToken(mOAuthAccessToken);
+                revokeAccessToken(mOAuthAccessToken, authCallback);
             }
         }
-        return "";
+        return _result;
     }
 
-    private void fetchAndSaveMicroGear(final String appKey, final String appSecret) {
-        mAuthorizationCallback = "scope=&appid=" + appKey + "&mgrev=NJS1a&verifier=NJS1a";
-        mAuthorization = mOAuthRequest.OAuth(appKey, appSecret, mAuthorizationCallback);
+    private void fetchAndSaveMicroGear(final String appId, final String appKey, final String appSecret, final NetpieAuthModule.NetpieAuthCallback authCallback) {
+        String authorizationCallback = "scope=&appid=" + appId + "&mgrev=NJS1a&verifier=NJS1a";
+        mAuthorization = mOAuthRequest.OAuth(appKey, appSecret, authorizationCallback);
         Log.d(TAG, "[fetchAndSaveMicroGear: ] authorization => " + mAuthorization);
+
         sendPostRequestToNetpie("http://ga.netpie.io:8080/api/rtoken",
                 mAuthorization, new RequestNetpieCallback() {
                     @Override
                     public void onFinished(String result, String token) {
                         Log.d(TAG, String.format("onFinished: " +
                                 "result = %s & token = %s", result, token));
-
                         // result = "yes"
                         if (!token.isEmpty()) {
-                            OAuthRequestToken _oAuthRequestToken = getOAuthRequestToken(token);
+                            OAuthRequestToken _oAuthRequestToken = parseOAuthRequestTokenString(token);
                             mOAuthAccessToken = getOAuthSecretToken(appKey,
                                     appSecret, _oAuthRequestToken);
                             saveAllOAuthToken(mOAuthAccessToken, appKey);
                             AppHelper.cacheMicroGearToken(mContext, true);
+                            authCallback.onFinished();
                         }
                     }
                 });
@@ -175,7 +179,7 @@ public class OauthNetpieLibraryVersion2 {
         }
     }
 
-    private void revokeAccessToken(OAuthAccessToken oAuthAccessToken) {
+    private void revokeAccessToken(OAuthAccessToken oAuthAccessToken, final NetpieAuthModule.NetpieAuthCallback authCallback) {
         String url = String.format("http://ga.netpie.io:8080/api/revoke/%s/%s",
                 oAuthAccessToken.oauth_token, oAuthAccessToken.revoketoken);
 
@@ -194,7 +198,9 @@ public class OauthNetpieLibraryVersion2 {
             @Override
             public void onResponse(Call call, Response response) throws IOException {
                 Log.d(TAG, "onResponse: " + response.body().string());
+                AppHelper.setString(mContext, Constants.MICROGEAR_CACHE, "{}");
                 AppHelper.cacheMicroGearToken(mContext, false);
+                fetchAndSaveMicroGear(mAppId, mAppKey, mAppSecret, authCallback);
             }
         });
     }
@@ -246,7 +252,7 @@ public class OauthNetpieLibraryVersion2 {
         return _oAuthAccessToken;
     }
 
-    private OAuthRequestToken getOAuthRequestToken(String token) {
+    private OAuthRequestToken parseOAuthRequestTokenString(String token) {
         Map<String, String> query_pairs = processToken(token);
         OAuthRequestToken _oAuthRequestToken = new OAuthRequestToken();
 
@@ -298,14 +304,16 @@ public class OauthNetpieLibraryVersion2 {
                 .build();
         try {
             Response response = client.newCall(request).execute();
-            Log.d(TAG, "---->>> sendPostRequestToNetpie: [RESPONSE] -> ");
+            Log.d(TAG, "sendPostRequestToNetpie: [RESPONSE] -> ");
             if (response.isSuccessful()) {
                 Log.d(TAG, "-----> [YES]");
                 callback.onFinished("yes", response.body().string());
             } else {
+                Log.d(TAG, "-----> [SECRETANDID]");
                 callback.onFinished("secretandid", "");
             }
         } catch (IOException ex) {
+            Log.d(TAG, "-----> [ID]");
             callback.onFinished("id", "");
         }
     }
