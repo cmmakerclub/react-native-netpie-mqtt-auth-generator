@@ -103,8 +103,12 @@ public class OauthNetpieLibraryVersion2 {
                             Log.d(TAG, "Token : => " + token);
                             if (!token.isEmpty()) {
                                 updateOAuthRequestToken(token);
-                                updateOAuthAccessToken();
-                                saveAllOAuthToken();
+
+                                getAndupdateOAuthAccessToken(mAppKey, mAppSecret,
+                                        mOauth_request_token, mOauth_request_token_secret);
+
+                                saveAllOAuthToken(mAccessToken, mAccessTokenSecret, mEndPoint,
+                                        mRevokeToken, mAppKey);
                                 AppHelper.cacheMicroGearToken(mContext, true);
                             }
                         }
@@ -119,23 +123,22 @@ public class OauthNetpieLibraryVersion2 {
                 if (cachedKey.equals(mAppKey)) {
                     Log.d(TAG, "create: [VALID APP KEY] " + mAppKey);
                 } else {
-                    mRevokeToken = mJSONTokenObject.getJSONObject("_").getJSONObject("accesstoken").
-                            getString("revokecode");
-                    mAccessToken = mJSONTokenObject.getJSONObject("_").getJSONObject("accesstoken").
-                            getString("token");
+                    JSONObject accessToken = mJSONTokenObject.getJSONObject("_").getJSONObject("accesstoken");
+                    mRevokeToken = accessToken.getString("revokecode");
+                    mAccessToken = accessToken.getString("token");
                     revokeAccessToken();
                 }
             } catch (JSONException e) {
                 e.printStackTrace();
             }
         }
-        return "String";
+        return "";
     }
 
     private void revokeAccessToken() {
-        String url = "http://ga.netpie.io:8080/api/revoke/" + mAccessToken + "/" + mRevokeToken;
-
+        String url = String.format("http://ga.netpie.io:8080/api/revoke/%s/%s", mAccessToken, mRevokeToken);
         url = url.replace("\\/", "/");
+
         Request request = new Request.Builder()
                 .url(url)
                 .get()
@@ -143,9 +146,6 @@ public class OauthNetpieLibraryVersion2 {
         client.newCall(request).enqueue(new Callback() {
             @Override
             public void onFailure(Call call, IOException e) {
-                Log.d(TAG, "onFailure: ");
-                Log.d(TAG, "onFailure: ");
-                Log.d(TAG, "onFailure: ");
                 Log.d(TAG, "onFailure: ");
             }
 
@@ -157,50 +157,50 @@ public class OauthNetpieLibraryVersion2 {
         });
     }
 
-    private void saveAllOAuthToken() {
+    private void saveAllOAuthToken(String accessToken, String accessTokenSecret, String endpoint,
+                                   String revokeToken, String appKey) {
         JSONObject underscoreNode = new JSONObject();
         JSONObject accessTokenChild = new JSONObject();
-
         try {
-            accessTokenChild.put("token", mAccessToken);
-            accessTokenChild.put("secret", mAccessTokenSecret);
-            accessTokenChild.put("endpoint", mEndPoint);
-            accessTokenChild.put("revokecode", mRevokeToken);
-            underscoreNode.putOpt("key", mAppKey);
+            accessTokenChild.put("token", accessToken);
+            accessTokenChild.put("secret", accessTokenSecret);
+            accessTokenChild.put("endpoint", endpoint);
+            accessTokenChild.put("revokecode", revokeToken);
+            underscoreNode.putOpt("key", appKey);
             underscoreNode.put("requesttoken", "null");
             underscoreNode.put("accesstoken", accessTokenChild);
             mJSONTokenObject.put("_", underscoreNode);
+            AppHelper.setString(mContext, Constants.MICROGEAR_CACHE, mJSONTokenObject.toString());
 
         } catch (JSONException e) {
             e.printStackTrace();
         }
 
-        AppHelper.setString(mContext, Constants.MICROGEAR_CACHE, mJSONTokenObject.toString());
     }
 
-    private void updateOAuthAccessToken() {
-        JSONObject Request_Access_token = new OAuth1_0a_Access().OAuth(mAppKey, mAppSecret,
-                mOauth_request_token, mOauth_request_token_secret);
+    private void getAndupdateOAuthAccessToken(String appKey, String appSecret,
+                                              String oauth_request_token, String oauth_request_token_secret) {
+        JSONObject Request_Access_token = new OAuth1_0a_Access().OAuth(appKey, appSecret,
+                oauth_request_token, oauth_request_token_secret);
 
         try {
             String oauth_acess_token_string = Request_Access_token.get("").toString();
             Map<String, String> access = processToken(oauth_acess_token_string);
-
             mAccessToken = access.get("oauth_token");
             mAccessTokenSecret = access.get("oauth_token_secret");
             mEndPoint = access.get("endpoint");
             mRevokeToken = Signature(mAppSecret, mAccessTokenSecret, mAccessToken);
 
-            Log.d(TAG, "[ACCESS TOKEN STRING] onFinished: = " + oauth_acess_token_string);
-            Log.d(TAG, "onFinished: [ACCESS TOKEN RESP] " + access.toString());
-            Log.d(TAG, "mAccessToken: " + mAccessToken);
-            Log.d(TAG, "mAccessTokenSecret: " + mAccessTokenSecret);
-            Log.d(TAG, "mRevokeToken: " + mRevokeToken);
-            Log.d(TAG, "processToken: [OAuth Access]" + Request_Access_token.toString());
-
         } catch (JSONException e) {
             e.printStackTrace();
         }
+
+//        Log.d(TAG, "[ACCESS TOKEN STRING] onFinished: = " + oauth_acess_token_string);
+//        Log.d(TAG, "onFinished: [ACCESS TOKEN RESP] " + access.toString());
+//        Log.d(TAG, "mAccessToken: " + mAccessToken);
+//        Log.d(TAG, "mAccessTokenSecret: " + mAccessTokenSecret);
+//        Log.d(TAG, "mRevokeToken: " + mRevokeToken);
+//        Log.d(TAG, "processToken: [OAuth Access]" + Request_Access_token.toString());
     }
 
     private void updateOAuthRequestToken(String token) {
