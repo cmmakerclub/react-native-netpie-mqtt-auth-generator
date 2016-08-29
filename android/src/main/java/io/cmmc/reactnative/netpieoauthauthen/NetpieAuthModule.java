@@ -107,9 +107,9 @@ public class NetpieAuthModule extends ReactContextBaseJavaModule {
                     params.putString("appid", appid);
                     params.putString("appkey", appkey);
                     params.putString("appsecret", appsecret);
-                    params.putString("mqttusername", mqttuser);
-                    params.putString("mqttclientid", mqttclientid);
-                    params.putString("mqttpassword", mqttpassword);
+                    params.putString("mqtt_username", mqttuser);
+                    params.putString("mqtt_clientid", mqttclientid);
+                    params.putString("mqtt_password", mqttpassword);
                     callback.invoke(false, params);
                 } else if (result.equals("id")) {
                     callback.invoke(true, "App id Invalid.");
@@ -119,8 +119,6 @@ public class NetpieAuthModule extends ReactContextBaseJavaModule {
                     Log.d(TAG, "onCreate: App id,Key or Secret Invalid");
                 } else {
                     callback.invoke(true, "Error: unknown reason.");
-//            Log.d(TAG, "onCreate: App id,Key or Secret Invalid");
-                    //brokerconnect(appid, key, secret);
                 }
             }
         });

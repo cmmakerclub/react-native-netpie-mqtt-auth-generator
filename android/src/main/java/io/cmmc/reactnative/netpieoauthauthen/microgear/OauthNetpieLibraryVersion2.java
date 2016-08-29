@@ -17,9 +17,9 @@ import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 
 import io.cmmc.reactnative.netpieoauthauthen.NetpieAuthModule;
+import io.cmmc.reactnative.netpieoauthauthen.utils.LoggingInterceptor;
 import okhttp3.Call;
 import okhttp3.Callback;
-import okhttp3.Interceptor;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.RequestBody;
@@ -30,22 +30,8 @@ import okhttp3.Response;
  * Created by Nat on 8/27/16 AD.
  */
 public class OauthNetpieLibraryVersion2 {
-    public interface RequestNetpieCallback {
-        public void onFinished(String result, String token);
-    }
-
-    public static class OAuthRequestToken {
-        String oauth_token;
-        String oauth_token_secret;
-    }
-
-    public class OAuthAccessToken extends OAuthRequestToken {
-        String endpoint;
-        String revoketoken;
-    }
-
     private static final String TAG = "OauthNetpieLibV2";
-    private OkHttpClient client;
+    private OkHttpClient okHttpClient;
     private Context mContext;
 
     private String mAppId;
@@ -58,32 +44,12 @@ public class OauthNetpieLibraryVersion2 {
 
     private JSONObject mJSONTokenObject;
 
-    class LoggingInterceptor implements Interceptor {
-        @Override
-        public Response intercept(Interceptor.Chain chain) throws IOException {
-            Request request = chain.request();
-
-            long t1 = System.nanoTime();
-            Log.i(TAG, String.format("Sending request %s on %s%n%s",
-                    request.url(), chain.connection(), request.headers()));
-
-            Response response = chain.proceed(request);
-
-            long t2 = System.nanoTime();
-            Log.d(TAG, String.format("Received response for %s in %.1fms%n%s",
-                    response.request().url(), (t2 - t1) / 1e6d, response.headers()));
-
-            return response;
-        }
-    }
-
-
     public OauthNetpieLibraryVersion2(Context context) {
         super();
         mContext = context;
         mJSONTokenObject = new JSONObject();
         mOAuthRequest = new OAuth1_0a_Request();
-        client = new OkHttpClient.Builder()
+        okHttpClient = new OkHttpClient.Builder()
                 .addInterceptor(new LoggingInterceptor())
                 .connectTimeout(3, TimeUnit.SECONDS)
                 .writeTimeout(3, TimeUnit.SECONDS)
@@ -101,29 +67,27 @@ public class OauthNetpieLibraryVersion2 {
         } else {
             restoreAccessTokenFromCache();
             String cachedKey = getAppKeyFromCache();
-            Log.d(TAG, "FOUND CACHED MICROGEAR >> with appKey = " + mAppKey);
+            //Log.d(TAG, "FOUND CACHED MICROGEAR: appKey => " + mAppKey);
             if (cachedKey.equals(mAppKey)) {
-                Log.d(TAG, "and [VALID APP KEY] ");
+                //Log.d(TAG, "[VALID APP KEY] ");
                 authCallback.onFinished("yes");
             } else {
-                Log.d(TAG, "BUT [DIFFERENT APP KEY] so REVOKE old Access Token ");
+                //Log.d(TAG, "[DIFFERENT APP KEY] REVOKE THE CACHED KEY..");
                 revokeAccessToken(mOAuthAccessToken, authCallback);
             }
         }
         return _result;
     }
 
-    private void fetchAndSaveMicroGear(final String appId, final String appKey, final String appSecret, final NetpieAuthModule.NetpieAuthCallback authCallback) {
+    private void fetchAndSaveMicroGear(final String appId, final String appKey,
+                                       final String appSecret,
+                                       final NetpieAuthModule.NetpieAuthCallback authCallback) {
         String authorizationCallback = "scope=&appid=" + appId + "&mgrev=NJS1a&verifier=NJS1a";
         mAuthorization = mOAuthRequest.OAuth(appKey, appSecret, authorizationCallback);
-        Log.d(TAG, "[fetchAndSaveMicroGear: ] authorization => " + mAuthorization);
-
         sendPostRequestToNetpie("http://ga.netpie.io:8080/api/rtoken",
                 mAuthorization, new RequestNetpieCallback() {
                     @Override
                     public void onFinished(String result, String token) {
-                        Log.d(TAG, String.format("onFinished: " +
-                                "result = %s & token = %s", result, token));
                         // result = "yes"
                         if (!token.isEmpty()) {
                             OAuthRequestToken _oAuthRequestToken = parseOAuthRequestTokenString(token);
@@ -168,16 +132,19 @@ public class OauthNetpieLibraryVersion2 {
     }
 
     private String getAccessTokenFromCache(String key) {
+        String ret = "";
         try {
-            JSONObject accessToken = getJsonObjectFromCache().getJSONObject("_").getJSONObject("accesstoken");
-            return accessToken.getString(key);
+            JSONObject accessToken = getJsonObjectFromCache().getJSONObject("_").
+                    getJSONObject("accesstoken");
+            ret = accessToken.getString(key);
         } catch (JSONException e) {
             e.printStackTrace();
-            return "";
         }
+        return ret;
     }
 
-    private void revokeAccessToken(OAuthAccessToken oAuthAccessToken, final NetpieAuthModule.NetpieAuthCallback authCallback) {
+    private void revokeAccessToken(OAuthAccessToken oAuthAccessToken,
+                                   final NetpieAuthModule.NetpieAuthCallback authCallback) {
         String url = String.format("http://ga.netpie.io:8080/api/revoke/%s/%s",
                 oAuthAccessToken.oauth_token, oAuthAccessToken.revoketoken);
 
@@ -187,7 +154,7 @@ public class OauthNetpieLibraryVersion2 {
                 .url(url)
                 .get()
                 .build();
-        client.newCall(request).enqueue(new Callback() {
+        okHttpClient.newCall(request).enqueue(new Callback() {
             @Override
             public void onFailure(Call call, IOException e) {
                 Log.d(TAG, "onFailure: ");
@@ -215,6 +182,7 @@ public class OauthNetpieLibraryVersion2 {
             underscoreNode.put("requesttoken", "null");
             underscoreNode.put("accesstoken", accessTokenChild);
             mJSONTokenObject.put("_", underscoreNode);
+
             AppHelper.setString(mContext, Constants.MICROGEAR_CACHE, mJSONTokenObject.toString());
 
         } catch (JSONException e) {
@@ -261,7 +229,8 @@ public class OauthNetpieLibraryVersion2 {
     }
 
 
-    public static String Signature(String consumerSecret, String access_token_secret, String access_token) {
+    public static String Signature(String consumerSecret, String access_token_secret,
+                                   String access_token) {
         String key = access_token_secret + "&" + consumerSecret;
         String hash = "";
         SecretKeySpec keySpec = new SecretKeySpec(key.getBytes(), "HmacSHA1");
@@ -301,18 +270,31 @@ public class OauthNetpieLibraryVersion2 {
                 .post(reqbody)
                 .build();
         try {
-            Response response = client.newCall(request).execute();
-            Log.d(TAG, "sendPostRequestToNetpie: [RESPONSE] -> ");
+            Response response = okHttpClient.newCall(request).execute();
             if (response.isSuccessful()) {
-                Log.d(TAG, "-----> [YES]");
                 callback.onFinished("yes", response.body().string());
             } else {
-                Log.d(TAG, "-----> [SECRETANDID]");
                 callback.onFinished("secretandid", "");
             }
         } catch (IOException ex) {
-            Log.d(TAG, "-----> [ID]");
             callback.onFinished("id", "");
         }
+    }
+    /*
+        InnerClass
+     */
+
+    public interface RequestNetpieCallback {
+        public void onFinished(String result, String token);
+    }
+
+    public static class OAuthRequestToken {
+        String oauth_token;
+        String oauth_token_secret;
+    }
+
+    public class OAuthAccessToken extends OAuthRequestToken {
+        String endpoint;
+        String revoketoken;
     }
 }
