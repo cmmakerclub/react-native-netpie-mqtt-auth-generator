@@ -17,12 +17,7 @@ import com.facebook.react.modules.core.DeviceEventManagerModule;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.io.InputStreamReader;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.util.Date;
@@ -30,7 +25,9 @@ import java.util.Date;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 
+import io.cmmc.reactnative.netpieoauthauthen.microgear.AppHelper;
 import io.cmmc.reactnative.netpieoauthauthen.microgear.Base64;
+import io.cmmc.reactnative.netpieoauthauthen.microgear.Constants;
 import io.cmmc.reactnative.netpieoauthauthen.microgear.OauthNetpieLibraryVersion2;
 
 /**
@@ -104,17 +101,16 @@ public class NetpieAuthModule extends ReactContextBaseJavaModule {
                 Log.d(TAG, "onFinished: [RESULT] >> " + result);
 
                 if (result.equals("yes")) {
-                    callback.invoke(true, "RESULT = " + result);
-//            Log.d(TAG, "[AUTH MODULE] config: YES");
-////            brokerconnect(appsecret);
-//            WritableMap params = new WritableNativeMap();
-//            params.putString("appid", appid);
-//            params.putString("appkey", appkey);
-//            params.putString("appsecret", appsecret);
-//            params.putString("mqttusername", mqttuser);
-//            params.putString("mqttclientid", mqttclientid);
-//            params.putString("mqttpassword", mqttpassword);
-//            callback.invoke(false, params);
+                    brokerconnect(appsecret);
+                    Log.d(TAG, "[AUTH MODULE] config: YES");
+                    WritableMap params = new WritableNativeMap();
+                    params.putString("appid", appid);
+                    params.putString("appkey", appkey);
+                    params.putString("appsecret", appsecret);
+                    params.putString("mqttusername", mqttuser);
+                    params.putString("mqttclientid", mqttclientid);
+                    params.putString("mqttpassword", mqttpassword);
+                    callback.invoke(false, params);
                 } else if (result.equals("id")) {
                     callback.invoke(true, "App id Invalid.");
                     Log.d(TAG, "onCreate: App id Invalid");
@@ -132,21 +128,10 @@ public class NetpieAuthModule extends ReactContextBaseJavaModule {
     }
 
     private void brokerconnect(String secret) {
-        File fi = new File(tempFile.toString());
-        BufferedReader br;
-        StringBuilder sb = new StringBuilder();
-        String line;
         String secrettoken, secretid, hkey, ckappkey;
-        FileInputStream fis;
+        JSONObject json = null;
         try {
-            fis = new FileInputStream(tempFile.toString());
-            br = new BufferedReader(new InputStreamReader(fis));
-            while ((line = br.readLine()) != null) {
-                System.out.print(line);
-                sb.append(line);
-            }
-            Log.d(TAG, "NAT: " + sb.toString());
-            JSONObject json = new JSONObject(sb.toString());
+            json = new JSONObject(AppHelper.getString(mContext, Constants.MICROGEAR_CACHE, "{}"));
             mqttuser = json.getJSONObject("_").getString("key");
             secrettoken = json.getJSONObject("_").getJSONObject("accesstoken").getString("secret");
             mqttclientid = json.getJSONObject("_").getJSONObject("accesstoken").getString("token");
@@ -168,10 +153,7 @@ public class NetpieAuthModule extends ReactContextBaseJavaModule {
             } catch (InvalidKeyException e) {
                 e.printStackTrace();
             }
-
-        } catch (FileNotFoundException e) {
-
-        } catch (JSONException | IOException e) {
+        } catch (JSONException e) {
             e.printStackTrace();
         }
     }
