@@ -96,37 +96,47 @@ public class OauthNetpieLibraryVersion2 {
         mAppKey = appKey;
         mAppSecret = appSecret;
 
-        mAuthorizationCallback = "scope=&appid=" + mAppId + "&mgrev=NJS1a&verifier=NJS1a";
         if (!AppHelper.isMicroGearCached(mContext)) {
-            mAuthorization = mOAuthRequest.OAuth(appKey, appSecret, mAuthorizationCallback);
-            Log.d(TAG, "[create: ] authorization => " + mAuthorization);
-            sendPostRequestToNetpie("http://ga.netpie.io:8080/api/rtoken",
-                    mAuthorization, new RequestNetpieCallback() {
-                        @Override
-                        public void onFinished(String result, String token) {
-                            Log.d(TAG, "onFinished: => " + result);
-                            Log.d(TAG, "Token : => " + token);
-                            if (!token.isEmpty()) {
-                                OAuthRequestToken _oAuthRequestToken = getOAuthRequestToken(token);
-                                mOAuthAccessToken = getOAuthSecretToken(mAppKey, mAppSecret, _oAuthRequestToken);
-                                saveAllOAuthToken(mOAuthAccessToken, mAppKey);
-                                AppHelper.cacheMicroGearToken(mContext, true);
-                            }
-                        }
-                    });
+            fetchAndSaveMicroGear(mAppKey, mAppSecret);
         } else {
+            restoreAccessTokenFromCache();
             String cachedKey = getCachedAppKey();
+            Log.d(TAG, "FOUND CACHED MICROGEAR >> with appKey = " + mAppKey);
             if (cachedKey.equals(mAppKey)) {
-                Log.d(TAG, "create: [VALID APP KEY] " + mAppKey);
+                Log.d(TAG, "and [VALID APP KEY] ");
             } else {
-
-                mOAuthAccessToken.revoketoken = getAccessTokenFromCache("revokecode");
-                mOAuthAccessToken.oauth_token = getAccessTokenFromCache("token");
-
+                Log.d(TAG, "BUT [DIFFERENT APP KEY] so REVOKE old Access Token ");
                 revokeAccessToken(mOAuthAccessToken);
             }
         }
         return "";
+    }
+
+    private void fetchAndSaveMicroGear(String appKey, String appSecret) {
+        mAuthorizationCallback = "scope=&appid=" + mAppId + "&mgrev=NJS1a&verifier=NJS1a";
+        mAuthorization = mOAuthRequest.OAuth(appKey, appSecret, mAuthorizationCallback);
+        Log.d(TAG, "[fetchAndSaveMicroGear: ] authorization => " + mAuthorization);
+        sendPostRequestToNetpie("http://ga.netpie.io:8080/api/rtoken",
+                mAuthorization, new RequestNetpieCallback() {
+                    @Override
+                    public void onFinished(String result, String token) {
+                        Log.d(TAG, "onFinished: => " + result);
+                        Log.d(TAG, "Token : => " + token);
+                        if (!token.isEmpty()) {
+                            OAuthRequestToken _oAuthRequestToken = getOAuthRequestToken(token);
+                            mOAuthAccessToken = getOAuthSecretToken(mAppKey, mAppSecret, _oAuthRequestToken);
+                            saveAllOAuthToken(mOAuthAccessToken, mAppKey);
+                            AppHelper.cacheMicroGearToken(mContext, true);
+                        }
+                    }
+                });
+    }
+
+    private void restoreAccessTokenFromCache() {
+        // TODO: fill the object with all values.
+        mOAuthAccessToken = new OAuthAccessToken();
+        mOAuthAccessToken.revoketoken = getAccessTokenFromCache("revokecode");
+        mOAuthAccessToken.oauth_token = getAccessTokenFromCache("token");
     }
 
     private JSONObject getJsonObjectFromCache() {
