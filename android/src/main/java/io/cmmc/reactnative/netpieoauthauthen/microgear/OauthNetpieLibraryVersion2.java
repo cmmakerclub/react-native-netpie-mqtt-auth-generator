@@ -24,21 +24,24 @@ import okhttp3.Request;
 import okhttp3.RequestBody;
 import okhttp3.Response;
 
+
 /**
  * Created by Nat on 8/27/16 AD.
  */
 public class OauthNetpieLibraryVersion2 {
-
-    private String mAccessToken;
-    private String mAccessTokenSecret;
-    private String mRevokeToken;
-    private String mEndPoint;
-
     public interface RequestNetpieCallback {
         public void onFinished(String result, String token);
     }
 
+    public static class OAuthRequestToken {
+        String oauth_token;
+        String oauth_token_secret;
+    }
 
+    public class OAuthAccessToken extends OAuthRequestToken {
+        String endpoint;
+        String revoketoken;
+    }
 
     private static final String TAG = "OauthNetpieLibV2";
     private OkHttpClient client;
@@ -51,8 +54,7 @@ public class OauthNetpieLibraryVersion2 {
     private String mAuthorization;
 
     private OAuth1_0a_Request mOAuthRequest;
-    private OAuthTokenModel.OAuthAccessToken mOAuthAccessToken;
-    private OAuthTokenModel.OAuthRequestToken mOAuthRequestToken;
+    private OAuthAccessToken mOAuthAccessToken;
 
     private JSONObject mJSONTokenObject;
 
@@ -105,11 +107,9 @@ public class OauthNetpieLibraryVersion2 {
                             Log.d(TAG, "onFinished: => " + result);
                             Log.d(TAG, "Token : => " + token);
                             if (!token.isEmpty()) {
-                                updateOAuthRequestToken(token);
-
-                                getAndupdateOAuthAccessToken(mAppKey, mAppSecret, mOAuthRequestToken);
-                                saveAllOAuthToken(mAccessToken, mAccessTokenSecret, mEndPoint,
-                                        mRevokeToken, mAppKey);
+                                OAuthRequestToken _oAuthRequestToken = getOAuthRequestToken(token);
+                                mOAuthAccessToken = getOAuthSecretToken(mAppKey, mAppSecret, _oAuthRequestToken);
+                                saveAllOAuthToken(mOAuthAccessToken, mAppKey);
                                 AppHelper.cacheMicroGearToken(mContext, true);
                             }
                         }
@@ -125,9 +125,9 @@ public class OauthNetpieLibraryVersion2 {
                     Log.d(TAG, "create: [VALID APP KEY] " + mAppKey);
                 } else {
                     JSONObject accessToken = mJSONTokenObject.getJSONObject("_").getJSONObject("accesstoken");
-                    mRevokeToken = accessToken.getString("revokecode");
-                    mAccessToken = accessToken.getString("token");
-                    revokeAccessToken();
+                    mOAuthAccessToken.revoketoken = accessToken.getString("revokecode");
+                    mOAuthAccessToken.oauth_token = accessToken.getString("token");
+                    revokeAccessToken(mOAuthAccessToken);
                 }
             } catch (JSONException e) {
                 e.printStackTrace();
@@ -136,8 +136,10 @@ public class OauthNetpieLibraryVersion2 {
         return "";
     }
 
-    private void revokeAccessToken() {
-        String url = String.format("http://ga.netpie.io:8080/api/revoke/%s/%s", mAccessToken, mRevokeToken);
+    private void revokeAccessToken(OAuthAccessToken oAuthAccessToken) {
+        String url = String.format("http://ga.netpie.io:8080/api/revoke/%s/%s",
+                oAuthAccessToken.oauth_token, oAuthAccessToken.revoketoken);
+
         url = url.replace("\\/", "/");
 
         Request request = new Request.Builder()
@@ -158,15 +160,14 @@ public class OauthNetpieLibraryVersion2 {
         });
     }
 
-    private void saveAllOAuthToken(String accessToken, String accessTokenSecret, String endpoint,
-                                   String revokeToken, String appKey) {
+    private void saveAllOAuthToken(OAuthAccessToken oAuthAccessToken, String appKey) {
         JSONObject underscoreNode = new JSONObject();
         JSONObject accessTokenChild = new JSONObject();
         try {
-            accessTokenChild.put("token", accessToken);
-            accessTokenChild.put("secret", accessTokenSecret);
-            accessTokenChild.put("endpoint", endpoint);
-            accessTokenChild.put("revokecode", revokeToken);
+            accessTokenChild.put("token", oAuthAccessToken.oauth_token);
+            accessTokenChild.put("secret", oAuthAccessToken.oauth_token_secret);
+            accessTokenChild.put("endpoint", oAuthAccessToken.endpoint);
+            accessTokenChild.put("revokecode", oAuthAccessToken.revoketoken);
             underscoreNode.putOpt("key", appKey);
             underscoreNode.put("requesttoken", "null");
             underscoreNode.put("accesstoken", accessTokenChild);
@@ -179,30 +180,32 @@ public class OauthNetpieLibraryVersion2 {
 
     }
 
-    private void getAndupdateOAuthAccessToken(String appKey, String appSecret,
-                                              OAuthTokenModel.OAuthRequestToken oAuthRequestToken) {
+    private OAuthAccessToken getOAuthSecretToken(String appKey, String appSecret,
+                                                 OAuthRequestToken oAuthRequestToken) {
         JSONObject Request_Access_token = new OAuth1_0a_Access().OAuth(appKey, appSecret,
                 oAuthRequestToken.oauth_token, oAuthRequestToken.oauth_token_secret);
+        final OAuthAccessToken _oAuthAccessToken = new OAuthAccessToken();
 
         try {
             String oauth_acess_token_string = Request_Access_token.get("").toString();
             Map<String, String> access = processToken(oauth_acess_token_string);
 
+            _oAuthAccessToken.oauth_token = access.get("oauth_token");
+            _oAuthAccessToken.oauth_token_secret = access.get("oauth_token_secret");
+            _oAuthAccessToken.endpoint = access.get("endpoint");
 
-            mOAuthAccessToken.oauth_token = access.get("oauth_token");
-            mOAuthAccessToken.oauth_token_secret = access.get("oauth_token_secret");
-            mOAuthAccessToken.endpoint = access.get("endpoint");
+            //reference copy
+            String accessTokenSecret = _oAuthAccessToken.oauth_token_secret;
+            String accessToken = _oAuthAccessToken.oauth_token;
 
-            String accessTokenSecret = mOAuthAccessToken.oauth_token_secret;
-            String accessToken = mOAuthAccessToken.oauth_token;
-
-            mOAuthAccessToken.revoketoken = Signature(appSecret, accessTokenSecret, accessToken);
+            _oAuthAccessToken.revoketoken = Signature(appSecret, accessTokenSecret, accessToken);
 
         } catch (JSONException e) {
             e.printStackTrace();
         }
 
-//        Log.d(TAG, "[ACCESS TOKEN STRING] onFinished: = " + oauth_acess_token_string);
+        return _oAuthAccessToken;
+
 //        Log.d(TAG, "onFinished: [ACCESS TOKEN RESP] " + access.toString());
 //        Log.d(TAG, "mAccessToken: " + mAccessToken);
 //        Log.d(TAG, "mAccessTokenSecret: " + mAccessTokenSecret);
@@ -210,10 +213,14 @@ public class OauthNetpieLibraryVersion2 {
 //        Log.d(TAG, "processToken: [OAuth Access]" + Request_Access_token.toString());
     }
 
-    private void updateOAuthRequestToken(String token) {
+    private OAuthRequestToken getOAuthRequestToken(String token) {
         Map<String, String> query_pairs = processToken(token);
-        mOAuthRequestToken.oauth_token = query_pairs.get("oauth_token");
-        mOAuthRequestToken.oauth_token_secret = query_pairs.get("oauth_token_secretn");
+        OAuthRequestToken _oAuthRequestToken = new OAuthRequestToken();
+
+        _oAuthRequestToken.oauth_token = query_pairs.get("oauth_token");
+        _oAuthRequestToken.oauth_token_secret = query_pairs.get("oauth_token_secret");
+
+        return _oAuthRequestToken;
     }
 
 
